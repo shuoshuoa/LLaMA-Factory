@@ -51,6 +51,7 @@ class SupervisedDatasetProcessor(DatasetProcessor):
 
         for turn_idx, (source_ids, target_ids) in enumerate(encoded_pairs):
             if total_length >= self.data_args.cutoff_len:
+                import ipdb; ipdb.set_trace()
                 break
 
             source_len, target_len = infer_seqlen(

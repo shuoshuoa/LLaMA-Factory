@@ -1040,7 +1040,7 @@ class Qwen2AudioPlugin(BasePlugin):
 class Qwen2vlPlugin(BasePlugin):
     @override
     def _preprocess_image(self, image: "ImageObject", **kwargs) -> "ImageObject":
-        image = super()._preprocess_image(image, **kwargs)
+        # image = super()._preprocess_image(image, **kwargs)
         if min(image.width, image.height) < 28:
             width, height = max(image.width, 28), max(image.height, 28)
             image = image.resize((width, height), resample=Image.Resampling.NEAREST)

@@ -36,6 +36,8 @@ from .model_utils.unsloth import load_unsloth_pretrained_model
 from .model_utils.valuehead import load_valuehead_params
 from .patcher import patch_config, patch_model, patch_processor, patch_tokenizer, patch_valuehead_model
 
+from ..qwen_model.qwen2_5_vl import Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLProcessor, Qwen2_5_VLConfig
+
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, ProcessorMixin
@@ -95,7 +97,12 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
 
     patch_tokenizer(tokenizer, model_args)
     try:
-        processor = AutoProcessor.from_pretrained(model_args.model_name_or_path, **init_kwargs)
+        if 'Qwen2.5-VL' in model_args.model_name_or_path:
+            processor = Qwen2_5_VLProcessor.from_pretrained(model_args.model_name_or_path, min_pixels=model_args.min_pixels, max_pixels=model_args.max_pixels, **init_kwargs)
+        elif 'Qwen2-VL' in model_args.model_name_or_path:
+            processor = Qwen2_5_VLProcessor.from_pretrained(model_args.model_name_or_path, min_pixels=model_args.min_pixels, max_pixels=model_args.max_pixels, **init_kwargs)
+        else:
+            processor = AutoProcessor.from_pretrained(model_args.model_name_or_path, **init_kwargs)
         patch_processor(processor, config, tokenizer, model_args)
     except Exception as e:
         logger.debug(f"Processor was not found: {e}.")
@@ -140,27 +147,32 @@ def load_model(
         elif is_trainable:
             model = load_unsloth_pretrained_model(config, model_args)
 
-    if model is None and not lazy_load:
-        init_kwargs["config"] = config
-        init_kwargs["pretrained_model_name_or_path"] = model_args.model_name_or_path
+    if 'Qwen2.5-VL' in model_args.model_name_or_path:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_args.model_name_or_path, torch_dtype="auto", device_map="auto")
+    elif 'Qwen2-VL' in model_args.model_name_or_path:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_args.model_name_or_path, torch_dtype="auto", device_map="auto")
+    else:
+        if model is None and not lazy_load:
+            init_kwargs["config"] = config
+            init_kwargs["pretrained_model_name_or_path"] = model_args.model_name_or_path
 
-        if model_args.mixture_of_depths == "load":
-            model = load_mod_pretrained_model(**init_kwargs)
-        else:
-            if type(config) in AutoModelForVision2Seq._model_mapping.keys():  # assume built-in models
-                load_class = AutoModelForVision2Seq
-            elif type(config) in AutoModelForSeq2SeqLM._model_mapping.keys():
-                load_class = AutoModelForSeq2SeqLM
+            if model_args.mixture_of_depths == "load":
+                model = load_mod_pretrained_model(**init_kwargs)
             else:
-                load_class = AutoModelForCausalLM
+                if type(config) in AutoModelForVision2Seq._model_mapping.keys():  # assume built-in models
+                    load_class = AutoModelForVision2Seq
+                elif type(config) in AutoModelForSeq2SeqLM._model_mapping.keys():
+                    load_class = AutoModelForSeq2SeqLM
+                else:
+                    load_class = AutoModelForCausalLM
 
-            if model_args.train_from_scratch:
-                model = load_class.from_config(config, trust_remote_code=model_args.trust_remote_code)
-            else:
-                model = load_class.from_pretrained(**init_kwargs)
+                if model_args.train_from_scratch:
+                    model = load_class.from_config(config, trust_remote_code=model_args.trust_remote_code)
+                else:
+                    model = load_class.from_pretrained(**init_kwargs)
 
-        if model_args.mixture_of_depths == "convert":
-            model = convert_pretrained_model_to_mod(model, config, model_args)
+            if model_args.mixture_of_depths == "convert":
+                model = convert_pretrained_model_to_mod(model, config, model_args)
 
     if not lazy_load:
         patch_model(model, tokenizer, model_args, is_trainable, add_valuehead)

@@ -82,7 +82,14 @@ class ProcessorArguments:
         default=128,
         metadata={"help": "The maximum number of sampled frames for video inputs."},
     )
-
+    max_pixels: int = field(
+        default=2048 * 28 * 28,
+        metadata={"help": "The maximum number of pixels of image inputs."},
+    )
+    min_pixels: int = field(
+        default=1024 * 28 * 28,
+        metadata={"help": "The minimum number of pixels of image inputs."},
+    )
 
 @dataclass
 class ExportArguments:
